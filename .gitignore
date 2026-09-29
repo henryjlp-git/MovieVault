@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Secrets (API keys, database passwords)
+.env
+*.env
+
+# Large raw datasets (IMDb files are too big for GitHub)
+data/raw/
+*.tsv
+*.tsv.gz
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
