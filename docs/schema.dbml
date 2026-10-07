@@ -1,0 +1,109 @@
+// Movie Review Database
+// CS 514 Final Database Product Project
+
+Enum credit_role {
+  director
+  writer
+  actor
+}
+
+Table movies {
+  movie_id integer [pk, increment]
+  imdb_id varchar(12) [unique, not null, note: 'e.g. tt0111161']
+  title varchar(300) [not null]
+  release_date date
+  runtime_min integer [note: 'CHECK runtime_min > 0']
+  plot text
+  poster_url text
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    title
+    release_date
+  }
+}
+
+Table genres {
+  genre_id integer [pk, increment]
+  name varchar(50) [unique, not null]
+}
+
+Table movie_genres {
+  movie_id integer [not null]
+  genre_id integer [not null]
+
+  indexes {
+    (movie_id, genre_id) [pk]
+  }
+}
+
+Table people {
+  person_id integer [pk, increment]
+  imdb_person_id varchar(12) [unique, note: 'e.g. nm0000151']
+  full_name varchar(200) [not null]
+  birth_year integer
+}
+
+Table movie_credits {
+  credit_id integer [pk, increment]
+  movie_id integer [not null]
+  person_id integer [not null]
+  role credit_role [not null]
+  character_name varchar(200) [note: 'Only for actors']
+  billing_order integer
+
+  indexes {
+    movie_id
+    person_id
+  }
+}
+
+Table rating_sources {
+  source_id integer [pk, increment]
+  name varchar(50) [unique, not null, note: 'IMDb, Rotten Tomatoes']
+  scale_max numeric(5,1) [not null, note: '10 for IMDb, 100 for RT']
+}
+
+Table external_ratings {
+  movie_id integer [not null]
+  source_id integer [not null]
+  score numeric(5,1) [not null]
+  vote_count integer
+  retrieved_at timestamp [default: `now()`]
+
+  indexes {
+    (movie_id, source_id) [pk]
+  }
+}
+
+Table users {
+  user_id uuid [pk, note: 'Matches Supabase auth.users id']
+  username varchar(30) [unique, not null]
+  email varchar(255) [unique, not null]
+  created_at timestamp [default: `now()`]
+}
+
+Table reviews {
+  review_id integer [pk, increment]
+  user_id uuid [not null]
+  movie_id integer [not null]
+  stars smallint [not null, note: 'CHECK stars BETWEEN 1 AND 10']
+  body text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    (user_id, movie_id) [unique, note: 'One review per user per movie']
+    movie_id
+  }
+}
+
+// Relationships
+Ref: movie_genres.movie_id > movies.movie_id [delete: cascade]
+Ref: movie_genres.genre_id > genres.genre_id [delete: cascade]
+Ref: movie_credits.movie_id > movies.movie_id [delete: cascade]
+Ref: movie_credits.person_id > people.person_id [delete: cascade]
+Ref: external_ratings.movie_id > movies.movie_id [delete: cascade]
+Ref: external_ratings.source_id > rating_sources.source_id
+Ref: reviews.movie_id > movies.movie_id [delete: cascade]
+Ref: reviews.user_id > users.user_id [delete: cascade]
