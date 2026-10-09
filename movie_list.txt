@@ -1,0 +1,96 @@
+# One title per line. Add a year in parentheses to avoid mix-ups,
+# or use an IMDb ID like tt0111161. Lines starting with # are ignored.
+The Shawshank Redemption
+The Godfather
+The Dark Knight
+Pulp Fiction
+Forrest Gump
+Inception
+Fight Club
+The Matrix
+Goodfellas
+Interstellar
+Se7en
+The Silence of the Lambs
+Saving Private Ryan
+Schindler's List
+Gladiator
+The Lion King
+Back to the Future
+Terminator 2: Judgment Day
+Alien
+Jurassic Park
+Titanic
+Star Wars (1977)
+The Empire Strikes Back
+Raiders of the Lost Ark
+Casablanca
+Psycho
+Citizen Kane
+Vertigo
+Jaws
+E.T. the Extra-Terrestrial
+The Princess Bride
+Toy Story
+Finding Nemo
+WALL-E
+Up
+Inside Out
+Spirited Away
+Princess Mononoke
+My Neighbor Totoro
+Parasite
+Oldboy
+Amelie
+Pan's Labyrinth
+City of God
+Life Is Beautiful
+Cinema Paradiso
+Seven Samurai
+Rashomon
+Whiplash
+La La Land
+Mad Max: Fury Road
+Blade Runner (1982)
+Blade Runner 2049
+Arrival
+Get Out
+Everything Everywhere All at Once
+Oppenheimer
+Barbie
+Dune (2021)
+Spider-Man: Into the Spider-Verse
+Black Panther
+The Avengers
+Avatar
+The Lord of the Rings: The Fellowship of the Ring
+The Lord of the Rings: The Return of the King
+Harry Potter and the Sorcerer's Stone
+The Wizard of Oz
+Singin' in the Rain
+Rocky
+Taxi Driver
+Apocalypse Now
+The Departed
+No Country for Old Men
+There Will Be Blood
+The Grand Budapest Hotel
+Moonlight
+Knives Out
+Superbad
+Anchorman: The Legend of Ron Burgundy
+Mean Girls
+Ferris Bueller's Day Off
+The Breakfast Club
+Groundhog Day
+Airplane!
+Monty Python and the Holy Grail
+Shaun of the Dead
+Hot Fuzz
+Memento
+The Prestige
+Gone Girl
+Prisoners
+Zodiac
+Heat
+Die Hard
