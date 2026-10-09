@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MovieVault</title>
+<style>
+:root{--bg:#0f1117;--card:#181b24;--line:#2a2e3c;--text:#e8e9ee;--mute:#9aa0b0;--accent:#f5b301;--red:#ff7b7b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{margin:0;font-size:1.35rem;color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+.mute{color:var(--mute)}.err{color:var(--red)}
+.tools{display:flex;gap:10px;flex-wrap:wrap;padding:16px 20px}
+.tools input{flex:1;min-width:200px}
+main{padding:0 20px 40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .15s}
+.card:hover{transform:translateY(-3px);border-color:var(--accent)}
+.poster{width:100%;aspect-ratio:2/3;object-fit:cover;background:#222635;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:.8rem;text-align:center;padding:8px}
+.info{padding:10px 12px}
+.info b{display:block;line-height:1.25;margin-bottom:2px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:.85rem}
+.badge{background:#222635;border-radius:6px;padding:1px 7px}
+dialog{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:22px;width:min(680px,94vw);max-height:90vh;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+.row{display:flex;gap:18px;flex-wrap:wrap}
+.row img{width:150px;border-radius:10px;align-self:flex-start}
+.review{border-top:1px solid var(--line);padding:10px 0}
+.field{display:block;width:100%;margin:6px 0}
+.close{float:right}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 MovieVault</h1>
+  <div id="authArea"></div>
+</header>
+
+<div class="tools">
+  <input id="search" type="search" placeholder="Search by title…">
+  <select id="genre"><option value="">All genres</option></select>
+  <select id="sort">
+    <option value="imdb">Sort: IMDb rating</option>
+    <option value="rt">Sort: Rotten Tomatoes</option>
+    <option value="users">Sort: User rating</option>
+    <option value="new">Sort: Newest</option>
+    <option value="runtime">Sort: Longest runtime</option>
+    <option value="title">Sort: Title A–Z</option>
+  </select>
+</div>
+
+<main>
+  <p id="status" class="mute">Loading movies…</p>
+  <div id="grid" class="grid"></div>
+</main>
+
+<dialog id="movieDlg"><button class="close" onclick="movieDlg.close()">✕</button><div id="movieBody"></div></dialog>
+
+<dialog id="authDlg">
+  <button class="close" onclick="authDlg.close()">✕</button>
+  <h2 id="authTitle" style="margin-top:0">Log in</h2>
+  <input id="aUser" class="field" placeholder="Username" style="display:none">
+  <input id="aEmail" class="field" type="email" placeholder="Email">
+  <input id="aPass" class="field" type="password" placeholder="Password (6+ characters)">
+  <p id="aMsg" class="err"></p>
+  <button class="primary" onclick="doAuth()">Continue</button>
+  <button id="aSwitch" onclick="toggleAuth()">Need an account? Sign up</button>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// ====== 1. PASTE YOUR VALUES (Supabase: Project Settings -> API) ======
+// Use the anon PUBLIC key. NEVER put the service_role key or DB password here.
+const SUPABASE_URL = 'https://kpourqgzkiumsgcoafgc.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwb3VycWd6a2l1bXNnY29hZmdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3MjE5MDQsImV4cCI6MjEwNjI5NzkwNH0.Ku3SphR68ZQtSF0hEQ6aewWJdL9udY5cY5ca6AP5qqs';
+// =====================================================================
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+let movies = [], session = null, username = null, authMode = 'login', currentId = null;
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = u => /^https?:\/\//.test(u || '') ? esc(u) : '';
+const year = d => d ? d.slice(0, 4) : '—';
+const posterHtml = (m, cls) => m.poster_url && safeUrl(m.poster_url)
+  ? `<img class="${cls}" src="${safeUrl(m.poster_url)}" alt="Poster for ${esc(m.title)}" loading="lazy">`
+  : `<div class="${cls}">${esc(m.title)}</div>`;
+
+// ---------- Movie list ----------
+async function loadMovies() {
+  const { data, error } = await db.from('movie_summary').select('*').limit(1000);
+  if (error) { $('status').innerHTML = `<span class="err">Could not load movies: ${esc(error.message)}</span>`; return; }
+  movies = data;
+  const genres = [...new Set(movies.flatMap(m => (m.genres || '').split(', ').filter(Boolean)))].sort();
+  const keep = $('genre').value;
+  $('genre').innerHTML = '<option value="">All genres</option>' + genres.map(g => `<option>${esc(g)}</option>`).join('');
+  $('genre').value = keep;
+  render();
+}
+
+const sorters = {
+  imdb: (a, b) => (b.imdb_score ?? -1) - (a.imdb_score ?? -1),
+  rt: (a, b) => (b.rt_score ?? -1) - (a.rt_score ?? -1),
+  users: (a, b) => (b.avg_user_stars ?? -1) - (a.avg_user_stars ?? -1),
+  new: (a, b) => (b.release_date || '').localeCompare(a.release_date || ''),
+  runtime: (a, b) => (b.runtime_min ?? 0) - (a.runtime_min ?? 0),
+  title: (a, b) => a.title.localeCompare(b.title)
+};
+
+function render() {
+  const q = $('search').value.trim().toLowerCase(), g = $('genre').value;
+  const list = movies
+    .filter(m => m.title.toLowerCase().includes(q) && (!g || (m.genres || '').split(', ').includes(g)))
+    .sort(sorters[$('sort').value]);
+  $('status').textContent = list.length ? `${list.length} movie${list.length === 1 ? '' : 's'}` : 'No movies match your search.';
+  $('grid').innerHTML = list.map(m => `
+    <div class="card" data-id="${m.movie_id}">
+      ${posterHtml(m, 'poster')}
+      <div class="info">
+        <b>${esc(m.title)}</b>
+        <span class="mute">${year(m.release_date)} · ${m.runtime_min ? m.runtime_min + ' min' : '—'}</span>
+        <div class="badges">
+          ${m.imdb_score != null ? `<span class="badge">⭐ ${m.imdb_score}</span>` : ''}
+          ${m.rt_score != null ? `<span class="badge">🍅 ${m.rt_score}%</span>` : ''}
+          ${m.review_count > 0 ? `<span class="badge">👥 ${m.avg_user_stars}/10</span>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+$('grid').addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  if (card) openMovie(Number(card.dataset.id));
+});
+['search', 'genre', 'sort'].forEach(id => $(id).addEventListener('input', render));
+
+// ---------- Movie detail and reviews ----------
+async function openMovie(id) {
+  currentId = id;
+  const m = movies.find(x => x.movie_id === id);
+  $('movieBody').innerHTML = '<p class="mute">Loading…</p>';
+  if (!$('movieDlg').open) $('movieDlg').showModal();
+
+  const [movieRes, revRes] = await Promise.all([
+    db.from('movies').select('plot').eq('movie_id', id).single(),
+    db.from('reviews').select('stars, body, created_at, users(username)').eq('movie_id', id).order('created_at', { ascending: false })
+  ]);
+  const revs = revRes.data || [];
+
+  const form = session
+    ? `<h3>Write a review</h3>
+       <select id="rStars" class="field">${[10,9,8,7,6,5,4,3,2,1].map(n => `<option value="${n}">${n} / 10</option>`).join('')}</select>
+       <textarea id="rBody" class="field" rows="3" maxlength="2000" placeholder="What did you think?"></textarea>
+       <p id="rMsg" class="err"></p>
+       <button class="primary" onclick="submitReview()">Post review</button>`
+    : `<p class="mute"><a href="#" onclick="openAuth('login');return false" style="color:var(--accent)">Log in</a> to write a review.</p>`;
+
+  $('movieBody').innerHTML = `
+    <div class="row">
+      ${posterHtml(m, 'poster-detail').replace('class="poster-detail"', 'style="width:150px"')}
+      <div style="flex:1;min-width:220px">
+        <h2 style="margin-top:0">${esc(m.title)}</h2>
+        <p class="mute">${m.release_date || 'Release date unknown'} · ${m.runtime_min ? m.runtime_min + ' min' : 'Runtime unknown'}<br>${esc(m.genres || '')}</p>
+        <div class="badges">
+          ${m.imdb_score != null ? `<span class="badge">⭐ IMDb ${m.imdb_score}/10</span>` : ''}
+          ${m.rt_score != null ? `<span class="badge">🍅 Rotten Tomatoes ${m.rt_score}%</span>` : ''}
+          <span class="badge">👥 ${m.review_count > 0 ? m.avg_user_stars + '/10 from ' + m.review_count + ' user review' + (m.review_count == 1 ? '' : 's') : 'No user reviews yet'}</span>
+        </div>
+        <p>${esc(movieRes.data?.plot || '')}</p>
+      </div>
+    </div>
+    <h3>User reviews</h3>
+    ${revs.length ? revs.map(r => `
+      <div class="review"><b>${esc(r.users?.username || 'Anonymous')}</b> · ${r.stars}/10
+        <span class="mute"> · ${new Date(r.created_at).toLocaleDateString()}</span>
+        <div>${esc(r.body || '')}</div></div>`).join('') : '<p class="mute">Be the first to review this movie.</p>'}
+    ${form}`;
+}
+
+async function submitReview() {
+  const msg = $('rMsg');
+  const { error } = await db.from('reviews').insert({
+    user_id: session.user.id,
+    movie_id: currentId,
+    stars: Number($('rStars').value),
+    body: $('rBody').value.trim() || null
+  });
+  if (error) {
+    msg.textContent = error.code === '23505' ? 'You have already reviewed this movie.' : error.message;
+    return;
+  }
+  await loadMovies();      // refresh averages
+  openMovie(currentId);    // refresh reviews
+}
+
+// ---------- Login / sign up ----------
+function openAuth(mode) { authMode = mode; syncAuthDialog(); $('aMsg').textContent = ''; $('movieDlg').close(); $('authDlg').showModal(); }
+function toggleAuth() { authMode = authMode === 'login' ? 'signup' : 'login'; syncAuthDialog(); }
+function syncAuthDialog() {
+  const signup = authMode === 'signup';
+  $('authTitle').textContent = signup ? 'Create account' : 'Log in';
+  $('aUser').style.display = signup ? 'block' : 'none';
+  $('aSwitch').textContent = signup ? 'Have an account? Log in' : 'Need an account? Sign up';
+}
+
+async function doAuth() {
+  const email = $('aEmail').value.trim(), password = $('aPass').value, msg = $('aMsg');
+  msg.textContent = '';
+  if (authMode === 'signup') {
+    const uname = $('aUser').value.trim();
+    if (!/^[A-Za-z0-9_]{3,30}$/.test(uname)) { msg.textContent = 'Username: 3-30 letters, numbers, or underscores.'; return; }
+    const { data, error } = await db.auth.signUp({ email, password, options: { data: { username: uname } } });
+    if (error) { msg.textContent = error.message.includes('Database error') ? 'That username may already be taken.' : error.message; return; }
+    if (!data.session) { msg.textContent = 'Check your email to confirm your account, then log in.'; return; }
+  } else {
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if (error) { msg.textContent = error.message; return; }
+  }
+  $('authDlg').close();
+}
+
+function renderAuth() {
+  $('authArea').innerHTML = session
+    ? `<span class="mute">Hi, ${esc(username || 'there')}</span> <button onclick="db.auth.signOut()">Log out</button>`
+    : `<button onclick="openAuth('login')">Log in</button> <button class="primary" onclick="openAuth('signup')">Sign up</button>`;
+}
+
+// Do not await Supabase calls inside this callback (known deadlock), so defer with setTimeout.
+db.auth.onAuthStateChange((_event, s) => {
+  session = s;
+  setTimeout(async () => {
+    username = null;
+    if (s) {
+      const { data } = await db.from('users').select('username').eq('user_id', s.user.id).single();
+      username = data?.username;
+    }
+    renderAuth();
+    if ($('movieDlg').open && currentId) openMovie(currentId);
+  }, 0);
+});
+
+// Click outside a dialog to close it
+['movieDlg', 'authDlg'].forEach(id => $(id).addEventListener('click', e => { if (e.target === $(id)) $(id).close(); }));
+
+renderAuth();
+loadMovies();
+</script>
+</body>
+</html>
